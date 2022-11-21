@@ -66,9 +66,9 @@ jobs:
         with:
           name: code-coverage-info
           path: lcov.info
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          # No token needed, because the repo is public.
-          files: lcov.info
-          fail_ci_if_error: true
+      #- name: Upload coverage to Codecov
+      #  uses: codecov/codecov-action@v3
+      #  with:
+      #    # No token needed, because the repo is public.
+      #    files: lcov.info
+      #    fail_ci_if_error: true
