@@ -111,10 +111,10 @@ where
         Self::serve_file(Self::graphiql_html(), "text/html")
     }
 
-    async fn handle_graphql_query(
+    pub async fn handle_graphql_query(
         &self,
         request: Request<Body>,
-    ) -> Result<Response<Body>, GraphQLServerError> {
+    ) -> Result<QueryResults, GraphQLServerError> {
         let (req_parts, req_body) = request.into_parts();
         let store = self.store.clone();
 
@@ -138,7 +138,7 @@ where
             Arc::new(NoopGraphQLMetrics),
         ) {
             Ok(query) => query,
-            Err(e) => return Ok(QueryResults::from(QueryResult::from(e)).as_http_response()),
+            Err(e) => return Ok(QueryResults::from(QueryResult::from(e))),
         };
 
         let load_manager = self.graphql_runner.load_manager();
@@ -169,7 +169,7 @@ where
             )
         };
 
-        Ok(QueryResults::from(result).as_http_response())
+        Ok(QueryResults::from(result))
     }
 
     // Handles OPTIONS requests
@@ -241,7 +241,9 @@ where
             }
             (Method::GET, ["graphql", "playground"]) => Ok(Self::handle_graphiql()),
 
-            (Method::POST, ["graphql"]) => self.handle_graphql_query(req).await,
+            (Method::POST, ["graphql"]) => {
+                Ok(self.handle_graphql_query(req).await?.as_http_response())
+            }
             (Method::OPTIONS, ["graphql"]) => Ok(Self::handle_graphql_options(req)),
 
             (Method::GET, ["explorer", rest @ ..]) => self.explorer.handle(&self.logger, rest),
