@@ -1,7 +1,9 @@
 use clap::Parser as _;
 use ethereum::chain::{EthereumAdapterSelector, EthereumBlockRefetcher, EthereumStreamBuilder};
+use ethereum::codec::Block;
 use ethereum::{
-    BlockIngestor as EthereumBlockIngestor, EthereumAdapterTrait, EthereumNetworks, RuntimeAdapter,
+    BlockIngestor as EthereumBlockIngestor, Chain, EthereumAdapterTrait, EthereumNetworks,
+    RuntimeAdapter,
 };
 use git_testament::{git_testament, render_testament};
 use graph::blockchain::firehose_block_ingestor::FirehoseBlockIngestor;
@@ -373,12 +375,38 @@ async fn main() {
         if !opt.disable_block_ingestor {
             if ethereum_chains.len() > 0 {
                 let block_polling_interval = Duration::from_millis(opt.ethereum_polling_interval);
+                info!(&logger, "#### {:?}", ethereum_chains);
 
-                start_block_ingestor(
+                let (firehose, polling): (HashMap<_, _>, HashMap<_, _>) = ethereum_chains
+                    .into_iter()
+                    .partition(|(_, chain)| chain.is_firehose_supported());
+
+                start_block_ingestor(&logger, &logger_factory, block_polling_interval, polling);
+
+                let eth_firehose_endpoints = firehose_networks_by_kind
+                    .get(&BlockchainKind::Ethereum)
+                    .unwrap();
+
+                start_firehose_block_ingestor::<_, Block>(
                     &logger,
-                    &logger_factory,
-                    block_polling_interval,
-                    ethereum_chains,
+                    &network_store,
+                    firehose
+                        .into_iter()
+                        .map(|(name, chain)| {
+                            let firehose_endpoints = eth_firehose_endpoints
+                                .networks
+                                .get(&name)
+                                .expect(&format!("chain {} to have endpoints", name))
+                                .clone();
+                            (
+                                name,
+                                FirehoseChain {
+                                    chain,
+                                    firehose_endpoints,
+                                },
+                            )
+                        })
+                        .collect(),
                 );
             }
 
